@@ -13,7 +13,7 @@ func main() {
 		NumWorkers: 2,
 		QueueSize:  10,
 	}
-	wp.Start(ctx) // Create worker goroutines and begin processing jobs
+	wp.Start(ctx) // Spawn worker goroutines and begin processing jobs
 
 	var counter uint64 = 0 // Create counter to keep track of jobs run
 	for i := 0; i < 5; i++ {

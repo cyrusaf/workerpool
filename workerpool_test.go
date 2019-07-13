@@ -16,7 +16,7 @@ func ExampleWorkerPool() {
 		NumWorkers: 2,
 		QueueSize:  10,
 	}
-	wp.Start(ctx) // Create worker goroutines and begin processing jobs
+	wp.Start(ctx) // Spawn worker goroutines and begin processing jobs
 
 	var counter uint64 = 0 // Create counter to keep track of jobs run
 	for i := 0; i < 5; i++ {
@@ -150,5 +150,63 @@ func TestWorkerPoolDropWhenFull(t *testing.T) {
 	wp.Shutdown()
 	if atomic.LoadUint64(&jobsExecuted) >= tc.expectedJobsExecutedLessThan {
 		t.Errorf("Expected less than %+v jobs executed, but %+v were executed instead\n", tc.expectedJobsExecutedLessThan, jobsExecuted)
+	}
+}
+
+func TestWorkerPoolMetrics(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	wp := workerpool.WorkerPool{
+		NumWorkers: 1,
+		QueueSize:  5,
+	}
+	wp.Start(ctx)
+
+	if activeWorkers := wp.ActiveWorkers(); activeWorkers != 0 {
+		t.Errorf("Expected 0 active workers but got %d instead", activeWorkers)
+	}
+	if pendingJobs := wp.PendingJobs(); pendingJobs != 0 {
+		t.Errorf("Expected 0 pending jobs but got %d instead", pendingJobs)
+	}
+
+	checkpoint := make(chan struct{})
+	wp.Enqueue(func(ctx context.Context) error {
+		checkpoint <- struct{}{}
+		<-ctx.Done()
+		return nil
+	})
+
+	<-checkpoint // Wait until job has been started
+	if activeWorkers := wp.ActiveWorkers(); activeWorkers != 1 {
+		t.Errorf("Expected 1 active worker but got %d instead", activeWorkers)
+	}
+	if pendingJobs := wp.PendingJobs(); pendingJobs != 0 {
+		t.Errorf("Expected 0 pending jobs but got %d instead", pendingJobs)
+	}
+
+	// Fill up queue with jobs
+	for i := 0; i < 5; i++ {
+		wp.Enqueue(func(ctx context.Context) error {
+			<-ctx.Done()
+			return nil
+		})
+	}
+
+	if pendingJobs := wp.PendingJobs(); pendingJobs != 5 {
+		t.Errorf("Expected 5 pending jobs but got %d instead", pendingJobs)
+	}
+
+	cancel()
+
+	// Wait for all work to be processed. A bit of a hack, could use channels for a cleaner
+	// solution.
+	time.Sleep(time.Second)
+
+	if activeWorkers := wp.ActiveWorkers(); activeWorkers != 0 {
+		t.Errorf("Expected 0 active workers but got %d instead", activeWorkers)
+	}
+	if pendingJobs := wp.PendingJobs(); pendingJobs != 0 {
+		t.Errorf("Expected 0 pending jobs but got %d instead", pendingJobs)
 	}
 }
