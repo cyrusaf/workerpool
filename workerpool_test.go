@@ -21,9 +21,8 @@ func ExampleWorkerPool() {
 	var counter uint64 = 0 // Create counter to keep track of jobs run
 	for i := 0; i < 5; i++ {
 		// Enqueue job onto workerpool's job queue
-		wp.Enqueue(func(ctx context.Context) error {
+		wp.Enqueue(func(ctx context.Context) {
 			atomic.AddUint64(&counter, 1) // Increment counter
-			return nil
 		})
 	}
 	// Gracefully shutdown workerpool, waiting for all queued jobs to finish
@@ -41,7 +40,7 @@ func TestWorkerPool(t *testing.T) {
 		dropWhenFull bool
 		numWorkers   int
 		queueSize    int
-		jobFunc      func(ctx context.Context) error
+		jobFunc      workerpool.Job
 		jobsToQueue  int
 		hardShutdown bool
 
@@ -53,9 +52,8 @@ func TestWorkerPool(t *testing.T) {
 			dropWhenFull: false,
 			numWorkers:   10,
 			queueSize:    10,
-			jobFunc: func(ctx context.Context) error {
+			jobFunc: func(ctx context.Context) {
 				time.Sleep(10 * time.Millisecond)
-				return nil
 			},
 			jobsToQueue: 100,
 
@@ -67,9 +65,8 @@ func TestWorkerPool(t *testing.T) {
 			dropWhenFull: false,
 			numWorkers:   10,
 			queueSize:    10,
-			jobFunc: func(ctx context.Context) error {
+			jobFunc: func(ctx context.Context) {
 				<-ctx.Done()
-				return nil
 			},
 			jobsToQueue:  10,
 			hardShutdown: true,
@@ -90,9 +87,9 @@ func TestWorkerPool(t *testing.T) {
 
 			var jobsExecuted uint64 = 0
 			for i := 0; i < tc.jobsToQueue; i++ {
-				wp.Enqueue(func(ctx context.Context) error {
+				wp.Enqueue(func(ctx context.Context) {
 					atomic.AddUint64(&jobsExecuted, 1)
-					return tc.jobFunc(ctx)
+					tc.jobFunc(ctx)
 				})
 			}
 			if tc.hardShutdown {
@@ -113,7 +110,7 @@ func TestWorkerPoolDropWhenFull(t *testing.T) {
 		dropWhenFull bool
 		numWorkers   int
 		queueSize    int
-		jobFunc      func(ctx context.Context) error
+		jobFunc      workerpool.Job
 		jobsToQueue  int
 
 		expectedJobsExecutedLessThan uint64
@@ -122,9 +119,8 @@ func TestWorkerPoolDropWhenFull(t *testing.T) {
 		dropWhenFull: true,
 		numWorkers:   1,
 		queueSize:    10,
-		jobFunc: func(ctx context.Context) error {
+		jobFunc: func(ctx context.Context) {
 			time.Sleep(100 * time.Millisecond)
-			return nil
 		},
 		jobsToQueue: 100,
 
@@ -141,9 +137,9 @@ func TestWorkerPoolDropWhenFull(t *testing.T) {
 
 	var jobsExecuted uint64 = 0
 	for i := 0; i < tc.jobsToQueue; i++ {
-		wp.Enqueue(func(ctx context.Context) error {
+		wp.Enqueue(func(ctx context.Context) {
 			atomic.AddUint64(&jobsExecuted, 1)
-			return tc.jobFunc(ctx)
+			tc.jobFunc(ctx)
 		})
 	}
 
@@ -171,10 +167,9 @@ func TestWorkerPoolMetrics(t *testing.T) {
 	}
 
 	checkpoint := make(chan struct{})
-	wp.Enqueue(func(ctx context.Context) error {
+	wp.Enqueue(func(ctx context.Context) {
 		checkpoint <- struct{}{}
 		<-ctx.Done()
-		return nil
 	})
 
 	<-checkpoint // Wait until job has been started
@@ -187,9 +182,8 @@ func TestWorkerPoolMetrics(t *testing.T) {
 
 	// Fill up queue with jobs
 	for i := 0; i < 5; i++ {
-		wp.Enqueue(func(ctx context.Context) error {
+		wp.Enqueue(func(ctx context.Context) {
 			<-ctx.Done()
-			return nil
 		})
 	}
 

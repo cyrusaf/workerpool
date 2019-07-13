@@ -7,7 +7,7 @@ import (
 )
 
 // Job is a function to be run by a worker.
-type Job func(ctx context.Context) error
+type Job func(ctx context.Context)
 
 // WorkerPool spins up multiple workers to process jobs in the background. A WorkerPool
 // processes a queue of jobs. Use Enqueue(j Job) to add a job to the queue. It is not safe
@@ -91,7 +91,7 @@ func (w *WorkerPool) newWorker(ctx context.Context) {
 		defer w.wg.Done()
 		for job := range w.jobs { // TODO: use context here?
 			atomic.AddInt64(&w.activeWorkers, 1)
-			_ = job(ctx) // TODO: handle error
+			job(ctx)
 			atomic.AddInt64(&w.activeWorkers, -1)
 		}
 	}()
