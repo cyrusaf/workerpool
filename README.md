@@ -3,7 +3,7 @@
 
 Package workerpool provides a generic workerpool implementation with basic features
 such as graceful shutdown and optionally dropping jobs instead of blocking when the queue
-is full. See the GoDoc page for full documenation.
+is full. See the [godoc](https://godoc.org/github.com/cyrusaf/workerpool) page for full documenation.
 
 ## Example
 ```golang
