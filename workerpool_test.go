@@ -62,20 +62,6 @@ func TestWorkerPool(t *testing.T) {
 			expectedJobsExecuted: 100,
 		},
 		{
-			name:         "DropWhenFull",
-			desc:         "",
-			dropWhenFull: true,
-			numWorkers:   1,
-			queueSize:    9,
-			jobFunc: func(ctx context.Context) error {
-				time.Sleep(100 * time.Millisecond)
-				return nil
-			},
-			jobsToQueue: 100,
-
-			expectedJobsExecuted: 10,
-		},
-		{
 			name:         "ExitOnContextCancel",
 			desc:         "",
 			dropWhenFull: false,
@@ -118,5 +104,51 @@ func TestWorkerPool(t *testing.T) {
 				t.Errorf("Expected %+v jobs executed, but %+v were executed instead\n", tc.expectedJobsExecuted, jobsExecuted)
 			}
 		})
+	}
+}
+
+func TestWorkerPoolDropWhenFull(t *testing.T) {
+	tc := struct {
+		desc         string
+		dropWhenFull bool
+		numWorkers   int
+		queueSize    int
+		jobFunc      func(ctx context.Context) error
+		jobsToQueue  int
+
+		expectedJobsExecutedLessThan uint64
+	}{
+		desc:         "",
+		dropWhenFull: true,
+		numWorkers:   1,
+		queueSize:    10,
+		jobFunc: func(ctx context.Context) error {
+			time.Sleep(100 * time.Millisecond)
+			return nil
+		},
+		jobsToQueue: 100,
+
+		expectedJobsExecutedLessThan: 50,
+	}
+
+	ctx := context.Background()
+	wp := workerpool.WorkerPool{
+		NumWorkers:   tc.numWorkers,
+		QueueSize:    tc.queueSize,
+		DropWhenFull: tc.dropWhenFull,
+	}
+	wp.Start(ctx)
+
+	var jobsExecuted uint64 = 0
+	for i := 0; i < tc.jobsToQueue; i++ {
+		wp.Enqueue(func(ctx context.Context) error {
+			atomic.AddUint64(&jobsExecuted, 1)
+			return tc.jobFunc(ctx)
+		})
+	}
+
+	wp.Shutdown()
+	if atomic.LoadUint64(&jobsExecuted) >= tc.expectedJobsExecutedLessThan {
+		t.Errorf("Expected less than %+v jobs executed, but %+v were executed instead\n", tc.expectedJobsExecutedLessThan, jobsExecuted)
 	}
 }
