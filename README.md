@@ -18,9 +18,8 @@ func main() {
 	var counter uint64 = 0 // Create counter to keep track of jobs run
 	for i := 0; i < 5; i++ {
 		// Enqueue job onto workerpool's job queue
-		wp.Enqueue(func(ctx context.Context) error {
+		wp.Enqueue(func(ctx context.Context) {
 			atomic.AddUint64(&counter, 1) // Increment counter
-			return nil
 		})
 	}
 	// Gracefully shutdown workerpool, waiting for all queued jobs to finish

@@ -40,7 +40,7 @@ func TestWorkerPool(t *testing.T) {
 		dropWhenFull bool
 		numWorkers   int
 		queueSize    int
-		jobFunc      workerpool.Job
+		jobFunc      func(ctx context.Context)
 		jobsToQueue  int
 		hardShutdown bool
 
@@ -110,7 +110,7 @@ func TestWorkerPoolDropWhenFull(t *testing.T) {
 		dropWhenFull bool
 		numWorkers   int
 		queueSize    int
-		jobFunc      workerpool.Job
+		jobFunc      func(ctx context.Context)
 		jobsToQueue  int
 
 		expectedJobsExecutedLessThan uint64

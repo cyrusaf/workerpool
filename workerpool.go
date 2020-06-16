@@ -6,13 +6,11 @@ import (
 	"sync/atomic"
 )
 
-// Job is a function to be run by a worker.
-type Job func(ctx context.Context)
-
 // WorkerPool spins up multiple workers to process jobs in the background. A WorkerPool
 // processes a queue of jobs. Use Enqueue(j Job) to add a job to the queue. It is not safe
 // to change the values of WorkerPool while it is running.
 type WorkerPool struct {
+
 	// NumWorkers determines how many workers are spun up to process jobs.
 	NumWorkers int
 
@@ -29,7 +27,7 @@ type WorkerPool struct {
 	OnJobDropped func() // TODO: add context as arg
 
 	wg            sync.WaitGroup
-	jobs          chan Job
+	jobs          chan func(ctx context.Context)
 	running       bool
 	activeWorkers int64
 }
@@ -42,9 +40,9 @@ func (w *WorkerPool) Start(ctx context.Context) {
 	if w.NumWorkers == 0 {
 		panic("Must have more than 0 workers")
 	}
-	w.running = true
 
-	w.jobs = make(chan Job, w.QueueSize)
+	w.running = true
+	w.jobs = make(chan func(ctx context.Context), w.QueueSize)
 	for i := 0; i < w.NumWorkers; i++ {
 		w.newWorker(ctx)
 	}
@@ -60,18 +58,18 @@ func (w *WorkerPool) Shutdown() {
 }
 
 // Enqueue adds a specified job onto the job queue.
-func (w *WorkerPool) Enqueue(j Job) {
+func (w *WorkerPool) Enqueue(job func(ctx context.Context)) {
 	switch w.DropWhenFull {
 	case true:
 		select {
-		case w.jobs <- j:
+		case w.jobs <- job:
 		default:
 			if w.OnJobDropped != nil {
 				w.OnJobDropped()
 			}
 		}
 	case false:
-		w.jobs <- j
+		w.jobs <- job
 	}
 }
 
